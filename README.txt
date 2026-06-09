@@ -13,7 +13,7 @@ Once the database is created, run the user creation tool via your terminal, usin
 
 Create as many users as you like.
 
-When giving users access to your server, you need to distribute the client.exe file found in the devkit folder, found within the Python folder.
+When giving users access to your server, you need to distribute the client.exe file found in the devkit folder, found within the Python folder. The user must then ensure that the proper server address is entered using the button at the bottom of the window before logging in. They will see a button to select a service, which currently allows them to access their file storage. Admins and superadmins will see an additional button to escalate their privileges. It is advised to click clear service before logging out, as the program sometimes does not properly clear service tokens before terminating a portal session, requiring administrator intervention to fix the resulting bug by terminating the service themselves.
 
 Admin powers require escalation from base user permissions. Superadmin powers require escalation from Admin powers. Currently the definition of the passwords for this process requires running pass_secure.py via the terminal, then manual entry into the SQL database. If you would like an easy creation process for a superadmin account, there is a manage_server_data.sql file that you can run, along with credentials in the admin auth pass.sql file. A simpler method is in development.
 

@@ -1,0 +1,81 @@
+uvicorn API.api:app --reload
+
+python -m API.client
+
+python -m Regions.server_manager_app
+
+$login = Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/login" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body '{"username":"AtlasUnchanged","password":"fuckaduck"}'
+
+$session = $login.portal_session_id
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/active_session" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body (@{
+      session_id = $session
+  } | ConvertTo-Json)
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/request_service" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body (@{
+      session_id = $session
+      service_type = "REGION"
+      service_name = ""
+  } | ConvertTo-Json)
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/active_service" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body (@{
+      session_id = $session
+  } | ConvertTo-Json)
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/clear_service" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body (@{
+      session_id = $session
+  } | ConvertTo-Json)
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/logout" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body (@{
+      session_id = $session
+  } | ConvertTo-Json)
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/privilege/admin" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body (@{
+      session_id = $session
+      admin_password = "youre getting called a slur"
+  } | ConvertTo-Json)
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/admin/peek_users" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body (@{
+      session_id = $session
+  } | ConvertTo-Json)
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/admin/peek_logs" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body (@{
+      session_id = $session
+      limit = 20
+  } | ConvertTo-Json)

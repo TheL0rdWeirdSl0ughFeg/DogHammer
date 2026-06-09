@@ -1,0 +1,17 @@
+DB_API_NAME="manage server"
+DB_API_PASSWORD="tormageddon monstrum rex"
+DB_API_USER="Master_Shake"
+
+DB_DAEMON_PASSWORD="power overwhelming breathe deep"
+DB_DAEMON_USER="Kairos"
+
+DB_HOST="localhost"
+
+DB_PRIVILEGE_PASSWORD="magnus did absolutely everything wrong"
+DB_PRIVILEGE_USER="Imperator"
+
+DB_REGION_PASSWORD="thor was a terrible fucking movie"
+DB_REGION_TOOL_PASSWORD="hate my life right now"
+DB_REGION_TOOL_USER="RegionArchitect"
+
+DB_REGION_USER="Bifrost"

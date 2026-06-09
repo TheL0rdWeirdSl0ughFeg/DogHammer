@@ -1,0 +1,246 @@
+----DATA MODELS
+
+--USER DATABASE (read-only at runtime)
+
+TABLE users:
+	id (primary key)
+	username (unique)
+	first_name
+	password_hash
+	role (USER | ADMIN | SUPERADMIN)[defines what permissions a user is allowed to upgrade to]
+	enabled (boolean)
+
+--STATUS DATABASE (managed by daemon, read by API and displayed on GUI)
+
+TABLE portal_sessions:
+	session_id (primary key)
+	user_id
+	created_at
+	last_seen_at
+	state( ACTIVE | LOGGED_OUT | EXPIRED | LOCKED)
+
+TABLE service:
+	token (primary key)
+	session_id (UNIQUE)
+	service_type (REGION | PRIVILEGE)
+	service_name (GAMES | FILES | FORUM | ADMIN | SUPERADMIN)
+	issued_at
+	expires_at
+	revoked_at (nullable)
+
+TABLE activity_log:
+	event_id
+	timestamp
+	user_id
+	session_id
+	event_type
+	service_type
+	service_name (nullable)
+	metadata
+
+----LOGIN PROCESS
+--endpoint POST /login
+
+FUNCTION api_login(username, password):
+
+	user = UserDatabase.get_user(username)
+
+	IF user DOES NOT EXIST:
+		return LOGIN_FAILURE
+
+	IF user.enabled IS FALSE:
+		return LOGIN_DISABLED
+
+	IF verify_password(password, user.password_hash) IS FALSE:
+		notify_daemon_failed_login(user.id)
+		return LOGIN_FAILURE
+
+	# password valid
+	session_id = daemon_create_portal_session(user.id)
+
+	return {
+		"portal_session_id": session_id,
+		"role": user.role
+	}
+
+----DAEMON
+
+FUNCTION daemon_create_portal_session(user_id):
+
+	session_id = generate_random_token()
+
+	INSERT INTO portal_sessions:
+		session_id
+		user_id
+		created_at = now
+		last_seen_at = now
+		state = ACTIVE
+
+	INSERT INTO activity_log:
+		event_type = LOGIN_SUCCESS
+
+	return session_id
+
+
+----REQUEST SESSIONxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx region request error?
+--endpoint POST /request_service
+
+FUNCTION api_session_request(session_id, request_service):
+
+	session = StatusData.get_portal_session(session_id)
+
+	IF session DOES NOT EXIST:
+		return NOT_AUTHENTICATED
+
+	IF session.state != ACTIVE:
+		return ACCESS_DENIED
+
+	existing_service = StatusData.get_active_service(session_id)
+
+	IF existing_service EXISTS:
+		return ERROR_SERVICE_ALREADY_ACTIVE
+
+	user = UserData.get_user_by_id(session.user_id)
+
+	IF request_service.type == PRIVILEGE:
+
+		IF request_service.value == ADMIN AND user.role NOT IN (ADMIN, SUPERADMIN):
+			return ACCESS_DENIED
+
+		IF request_service.value == SUPERADMIN AND user.role != SUPERADMIN:
+			return ACCESS_DENIED
+
+	IF request_service.type == REGION:
+			return ACCESS_GRANTED
+
+	IF request_service.value NOT IN (GAMES, FILES, FORUM) && user.role != SUPERADMIN:
+			return INVALID REGION
+
+	daemon_grant_service(session_id, request_service)
+
+
+FUNCTION daemon_grant_service(session_id, request_service):
+
+	INSERT INTO service:
+		token
+		session_id
+		service_type = request_service.type
+		service_name = request_service.value
+		issued_at = NOW
+
+	INSERT INTO activity_log:
+		event_type = SERVICE_ENTER
+		service_name = request_service.value
+
+----VALIDATION
+
+FUNCTION api_validate_access(session_id, required_service):
+
+	session = StatusData.get_portal_session(session_id)
+
+	IF session DOES NOT EXIST:
+		return ACCESS_DENIED
+
+	IF session.state != ACTIVE:
+		return ACCESS_DENIED
+
+	service = StatusData.get_active_service(session_id)
+
+	IF service DOES NOT EXIST:
+		return ACCESS_DENIED
+
+	IF service.service_name != required_service:
+		return ACCESS_DENIED
+
+	return ACCESS_GRANTED
+
+--LOCKOUT
+
+FUNCTION daemon_log_failed_attempt(value):
+
+	increment failure counter
+	
+	IF falures exceed threshold:
+		UPDATE portal_sessions 
+		SET state = LOCKED
+		WHERE user_id = value
+
+		INSERT activity_log LOCKOUT
+
+----CHANGE REGION/ROLE
+--endpoint: POST /clear_scope
+
+FUNCTION api_clear_service(session_id):
+
+	session = StatusData.get_portal_session(session_id)
+
+	IF session.state != ACTIVE:
+		return ACCESS_DENIED
+
+	existing_service = StatusData.get_active_service(session_id)
+
+	IF existing_service DOES NOT EXIST:
+		return NO_ACTIVE_SERVICE
+
+	daemon_clear_service(session_id)
+
+	return SESSION_CLEARED
+
+FUNCTION daemon_clear_service(session_id):
+
+	session = SELECT * FROM service WHERE session_id = input_session_id
+
+	DELETE FROM service WHERE session_id = input_session_id
+
+	INSERT INTO activity_log:
+		event_type = SERVICE_EXIT
+		service_name = service.service_name
+
+----LOGOUT
+-- endpoint POST /logout
+
+FUNCTION api_logout(session_id):
+	
+	daemon_end_portal(session_id)
+	
+	return LOGOUT_SUCCESS
+
+FUNCTION daemon_end_portal(session_id):
+
+	DELETE FROM service WHERE session_id = input_session_id
+
+	UPDATE portal_sessions
+		SET state = LOGGED_OUT
+		WHERE session_id = session_id
+
+	INSERT INTO activity_log
+		event_type LOGOUT
+
+----ACTIVITY DISPLAY
+--endpoint POST /active_users
+
+FUNCTION api_get_activ_users(request_session_id):
+
+	request_user = resolve_user_from_session(request_session_id)
+
+	active_sessions = StatusData.get_all_active()
+
+	FOR EACH session IN active_sessions:
+		user = UserData.get_user_by_id(session.user_id)
+
+		service = StatusData.get_active_service(session.session_id)
+
+		IF user.role == SUPERADMIN AND requesting_user.role == USER:
+			CONTINUE
+	
+		IF user.role == ADMIN AND requesting_user.role == USER
+			display_status = "ONLINE"
+		ELSE:
+			display_status = service.service_name OR "PORTAL"
+
+		ADD to result list:
+			username
+			session_duration
+			display_status
+
+	return result_list

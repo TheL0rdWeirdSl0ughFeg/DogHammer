@@ -1,0 +1,30 @@
+admin hierarchy rule set:
+
+USER
+- Access regions only
+- Can see admins
+- Cannot affect anyone
+
+ADMIN
+- Can affect USER accounts
+- Can downgrade/affect ADMIN accounts
+- Cannot see or affect SUPERADMIN accounts
+
+SUPERADMIN
+- Can affect USER and ADMIN accounts
+- Cannot affect other SUPERADMIN accounts through the API
+- Other SUPERADMIN conflict is handled via headed access
+
+Daemons/admin_daemon.scrutiny() will eventually evolve into a function to *browse* the all of the logs rather than just listing them, including the ability to hone in on a specific user to monitor them. A catchall monitoring tool rather than just a status viewer, or at least it will be eventually.
+
+XXXpeek_users()XXX
+XXXpeek_logs()XXX
+XXXkill_service()XXX
+XXXkill_user()XXX
+XXXhammer()XXX
+XXXgreenlight()XXX
+scrutiny()
+
+VALUES is deprecated and will be removed soon. All SQL needs to be reworked.
+
+obfuscate superadmin activity logs from non-supers
